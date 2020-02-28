@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package app
+package fr.acinq.dynamicfees.app
 
 import akka.actor.Props
-import app.FeeAdjusterActor.{DynamicFeeRow, DynamicFeesBreakdown}
+import fr.acinq.dynamicfees.app.FeeAdjusterActor.{DynamicFeeRow, DynamicFeesBreakdown}
 import com.typesafe.config.Config
 import fr.acinq.eclair.{Kit, Plugin, Setup}
 import grizzled.slf4j.Logging

@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package app
+package fr.acinq.dynamicfees.app
 
 import akka.actor.{Actor, DiagnosticActorLogging}
 import akka.util.Timeout
-import app.FeeAdjusterActor.DynamicFeesBreakdown
+import fr.acinq.dynamicfees.app.FeeAdjusterActor.DynamicFeesBreakdown
 import fr.acinq.bitcoin.ByteVector32
 import fr.acinq.eclair.channel.{CMD_UPDATE_RELAY_FEE, Commitments, DATA_NORMAL, NORMAL, RES_GETINFO}
 import fr.acinq.eclair.channel.Register.Forward
-import fr.acinq.eclair.payment.{ChannelPaymentRelayed, PaymentReceived, PaymentRelayed, PaymentSent, TrampolinePaymentRelayed}
+import fr.acinq.eclair.payment.{ChannelPaymentRelayed, PaymentRelayed, TrampolinePaymentRelayed}
 import fr.acinq.eclair.wire.ChannelUpdate
-import fr.acinq.eclair.{EclairImpl, Kit, MilliSatoshi, ShortChannelId}
+import fr.acinq.eclair.{EclairImpl, Kit}
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -33,7 +33,6 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Acto
 
   implicit val system = context.system
   implicit val ec = context.system.dispatcher
-  //val log = system.log
   implicit val askTimeout: Timeout = Timeout(30 seconds)
   val eclair = new EclairImpl(kit)
 
@@ -43,33 +42,37 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Acto
     case TrampolinePaymentRelayed(paymentHash, incoming, outgoing, _) =>
       log.debug(s"computing new dynamic fees for trampoline payment_hash=$paymentHash")
       val channels = incoming.map(_.channelId) ++ outgoing.map(_.channelId)
-      Future.sequence(channels.map(getChannelData)).map(_.flatten).map { channelData =>
-        updateFeesForChannels(channelData)
-      }
+      updateFees(channels)
 
     case ChannelPaymentRelayed(_, _, paymentHash, fromChannelId, toChannelId, _) =>
       log.debug(s"computing new dynamic fees for relayed payment_hash=$paymentHash")
       val channels = fromChannelId :: toChannelId :: Nil
-      Future.sequence(channels.map(getChannelData)).map(_.flatten).map { channelData =>
-        updateFeesForChannels(channelData)
+      updateFees(channels)
+  }
+
+  /**
+    * Will update the relay fee of the given channels if their current balance falls into depleted/saturated
+    * category
+    *
+    */
+  def updateFees(channels: Seq[ByteVector32]) = {
+    Future.sequence(channels.map(getChannelData)).map(_.flatten).map { channelData =>
+      channelData.foreach { channel =>
+        newFeeProportionalForChannel(channel.commitments, channel.channelUpdate) match {
+          case None =>
+            log.debug(s"not updating fees for channelId=${channel.commitments.channelId}")
+          case Some(feeProp) =>
+            log.info(s"updating feeProportional for channelId=${channel.commitments.channelId} oldFee=${channel.channelUpdate.feeProportionalMillionths} newFee=$feeProp")
+            kit.register ! Forward(channel.commitments.channelId , CMD_UPDATE_RELAY_FEE(kit.nodeParams.feeBase, feeProp))
+        }
       }
+    }
   }
 
   def getChannelData(channelId: ByteVector32): Future[Option[DATA_NORMAL]] = {
     eclair.channelInfo(Left(channelId)).map {
       case RES_GETINFO(_, _, state, data) if state == NORMAL => Some(data.asInstanceOf[DATA_NORMAL])
       case _ => None
-    }
-  }
-
-  def updateFeesForChannels(channels: Seq[DATA_NORMAL]) = {
-    channels.foreach { channel =>
-      newFeeProportionalForChannel(channel.commitments, channel.channelUpdate) match {
-        case None => log.debug(s"not updating fees for channelId=${channel.commitments.channelId}")
-        case Some(feeProp) =>
-          log.info(s"updating feeProportional for channelId=${channel.commitments.channelId} oldFee=${channel.channelUpdate.feeProportionalMillionths} newFee=$feeProp")
-          kit.register ! Forward(channel.commitments.channelId , CMD_UPDATE_RELAY_FEE(kit.nodeParams.feeBase, feeProp))
-      }
     }
   }
 
