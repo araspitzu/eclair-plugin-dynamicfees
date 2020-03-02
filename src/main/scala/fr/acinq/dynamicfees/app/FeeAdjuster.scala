@@ -16,21 +16,19 @@
 
 package fr.acinq.dynamicfees.app
 
-import akka.actor.Actor
+import akka.actor.{Actor, DiagnosticActorLogging}
 import akka.util.Timeout
 import fr.acinq.bitcoin.ByteVector32
-import fr.acinq.dynamicfees.app.FeeAdjusterActor.DynamicFeesBreakdown
-import fr.acinq.eclair.channel.Register.Forward
+import fr.acinq.dynamicfees.app.FeeAdjuster.DynamicFeesBreakdown
 import fr.acinq.eclair.channel._
 import fr.acinq.eclair.payment.{ChannelPaymentRelayed, PaymentRelayed, TrampolinePaymentRelayed}
 import fr.acinq.eclair.wire.ChannelUpdate
 import fr.acinq.eclair.{EclairImpl, Kit, ShortChannelId}
-import grizzled.slf4j.Logger
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown)(implicit log: Logger) extends Actor {
+class FeeAdjuster(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Actor with DiagnosticActorLogging {
 
   implicit val system = context.system
   implicit val ec = context.system.dispatcher
@@ -65,7 +63,7 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown)(implicit log
             log.debug(s"not updating fees for channelId=${channel.commitments.channelId}")
           case Some(feeProp) =>
             log.info(s"updating feeProportional for channelId=${channel.commitments.channelId} oldFee=${channel.channelUpdate.feeProportionalMillionths} newFee=$feeProp")
-            kit.register ! Forward(channel.commitments.channelId, CMD_UPDATE_RELAY_FEE(kit.nodeParams.feeBase, feeProp))
+            eclair.updateRelayFee(Left(channel.commitments.channelId), kit.nodeParams.feeBase, feeProp)
         }
       }
     }
@@ -118,7 +116,7 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown)(implicit log
 
 }
 
-object FeeAdjusterActor {
+object FeeAdjuster {
 
   case class DynamicFeeRow(threshold: Double, multiplier: Double)
 

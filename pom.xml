@@ -172,6 +172,12 @@
             <version>3.0.5</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-testkit_${scala.version.short}</artifactId>
+            <version>2.4.20</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

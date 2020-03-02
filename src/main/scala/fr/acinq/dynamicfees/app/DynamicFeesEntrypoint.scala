@@ -18,7 +18,7 @@ package fr.acinq.dynamicfees.app
 
 import akka.actor.Props
 import com.typesafe.config.{Config, ConfigFactory}
-import fr.acinq.dynamicfees.app.FeeAdjusterActor.{DynamicFeeRow, DynamicFeesBreakdown}
+import fr.acinq.dynamicfees.app.FeeAdjuster.{DynamicFeeRow, DynamicFeesBreakdown}
 import fr.acinq.eclair.{Kit, Plugin, Setup, ShortChannelId}
 import grizzled.slf4j.Logging
 
@@ -26,7 +26,6 @@ import scala.collection.JavaConverters._
 
 class DynamicFeesEntrypoint extends Plugin with Logging {
 
-  implicit val log = logger
   val fallbackConf = ConfigFactory.parseString(
     """
       dynamicfees.whitelist = []
@@ -36,7 +35,7 @@ class DynamicFeesEntrypoint extends Plugin with Logging {
   var conf: Config = null
   var dynamicFeesConfiguration: DynamicFeesBreakdown = null
 
-  log.info("loading DynamicFees plugin")
+  logger.info("loading DynamicFees plugin")
 
   override def onSetup(setup: Setup): Unit = {
     conf = setup.config
@@ -46,7 +45,7 @@ class DynamicFeesEntrypoint extends Plugin with Logging {
       whitelist = conf.withFallback(fallbackConf).getStringList("dynamicfees.whitelist").asScala.toList.map(ShortChannelId.apply),
       blacklist = conf.withFallback(fallbackConf).getStringList("dynamicfees.blacklist").asScala.toList.map(ShortChannelId.apply)
     )
-    log.info(prettyPrint(dynamicFeesConfiguration))
+    logger.info(prettyPrint(dynamicFeesConfiguration))
   }
 
   def prettyPrint(dfb: DynamicFeesBreakdown) =
@@ -66,7 +65,7 @@ class DynamicFeesEntrypoint extends Plugin with Logging {
      """.stripMargin
 
   override def onKit(kit: Kit): Unit = {
-    kit.system.actorOf(Props(new FeeAdjusterActor(kit, dynamicFeesConfiguration)))
+    kit.system.actorOf(Props(new FeeAdjuster(kit, dynamicFeesConfiguration)))
   }
 
 }
