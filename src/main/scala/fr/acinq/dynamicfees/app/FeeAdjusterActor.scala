@@ -16,20 +16,21 @@
 
 package fr.acinq.dynamicfees.app
 
-import akka.actor.{Actor, DiagnosticActorLogging}
+import akka.actor.Actor
 import akka.util.Timeout
-import fr.acinq.dynamicfees.app.FeeAdjusterActor.DynamicFeesBreakdown
 import fr.acinq.bitcoin.ByteVector32
-import fr.acinq.eclair.channel.{CMD_UPDATE_RELAY_FEE, Commitments, DATA_NORMAL, NORMAL, RES_GETINFO}
+import fr.acinq.dynamicfees.app.FeeAdjusterActor.DynamicFeesBreakdown
 import fr.acinq.eclair.channel.Register.Forward
+import fr.acinq.eclair.channel._
 import fr.acinq.eclair.payment.{ChannelPaymentRelayed, PaymentRelayed, TrampolinePaymentRelayed}
 import fr.acinq.eclair.wire.ChannelUpdate
-import fr.acinq.eclair.{EclairImpl, Kit}
+import fr.acinq.eclair.{EclairImpl, Kit, ShortChannelId}
+import grizzled.slf4j.Logger
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Actor with DiagnosticActorLogging {
+class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown)(implicit log: Logger) extends Actor {
 
   implicit val system = context.system
   implicit val ec = context.system.dispatcher
@@ -53,20 +54,27 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Acto
   /**
     * Will update the relay fee of the given channels if their current balance falls into depleted/saturated
     * category
-    *
     */
   def updateFees(channels: Seq[ByteVector32]) = {
     Future.sequence(channels.map(getChannelData)).map(_.flatten).map { channelData =>
-      channelData.foreach { channel =>
+      channelData
+        .filter(filterChannel)
+        .foreach { channel =>
         newFeeProportionalForChannel(channel.commitments, channel.channelUpdate) match {
           case None =>
             log.debug(s"not updating fees for channelId=${channel.commitments.channelId}")
           case Some(feeProp) =>
             log.info(s"updating feeProportional for channelId=${channel.commitments.channelId} oldFee=${channel.channelUpdate.feeProportionalMillionths} newFee=$feeProp")
-            kit.register ! Forward(channel.commitments.channelId , CMD_UPDATE_RELAY_FEE(kit.nodeParams.feeBase, feeProp))
+            kit.register ! Forward(channel.commitments.channelId, CMD_UPDATE_RELAY_FEE(kit.nodeParams.feeBase, feeProp))
         }
       }
     }
+  }
+
+  def filterChannel(channel: DATA_NORMAL): Boolean = {
+    (dynamicFees.whitelist.isEmpty && dynamicFees.blacklist.isEmpty) ||
+    (dynamicFees.whitelist.nonEmpty && dynamicFees.whitelist.contains(channel.shortChannelId)) ||
+    (dynamicFees.blacklist.nonEmpty && !dynamicFees.blacklist.contains(channel.shortChannelId))
   }
 
   def getChannelData(channelId: ByteVector32): Future[Option[DATA_NORMAL]] = {
@@ -90,7 +98,7 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Acto
     val multiplier = if (toLocalPercentage < dynamicFees.depleted.threshold) {
       // do depleted update
       dynamicFees.depleted.multiplier
-    } else if(toLocalPercentage > dynamicFees.saturated.threshold){
+    } else if (toLocalPercentage > dynamicFees.saturated.threshold) {
       // do saturated update
       dynamicFees.saturated.multiplier
     } else {
@@ -101,7 +109,7 @@ class FeeAdjusterActor(kit: Kit, dynamicFees: DynamicFeesBreakdown) extends Acto
     val newFeeProportional = (kit.nodeParams.feeProportionalMillionth * multiplier).toLong
     log.debug(s"prevFeeProportional=${channelUpdate.feeProportionalMillionths} newFeeProportional=$newFeeProportional")
 
-    if(channelUpdate.feeProportionalMillionths == newFeeProportional){
+    if (channelUpdate.feeProportionalMillionths == newFeeProportional) {
       None
     } else {
       Some(newFeeProportional)
@@ -116,7 +124,11 @@ object FeeAdjusterActor {
 
   case class DynamicFeesBreakdown(
     depleted: DynamicFeeRow,
-    saturated: DynamicFeeRow
-  )
+    saturated: DynamicFeeRow,
+    whitelist: List[ShortChannelId],
+    blacklist: List[ShortChannelId]
+  ) {
+    require(!(whitelist.nonEmpty && blacklist.nonEmpty), "cannot use both whitelist and blacklist in dynamicfees plugin configuration")
+  }
 
 }

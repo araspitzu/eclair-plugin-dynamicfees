@@ -166,6 +166,12 @@
             <version>0.3.4-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.version.short}</artifactId>
+            <version>3.0.5</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

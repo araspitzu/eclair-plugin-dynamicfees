@@ -28,7 +28,9 @@ Once the plugin is configured and loaded it doesn't need any further input from 
 ### Configuration
 Users MUST define a configuration section specifying the chosen values for their depleted/saturated thresholds
 and their relative multiplier, note that the plugin only asks for a depleted and saturated thresholds and everything 
-in between will be considered balanced. 
+in between will be considered balanced. It is possible to specify either a blacklist OR a whitelist of channel
+`short_id`s, this allows to filter only for certain channels or filter out channels that you want to exclude from 
+the dynamic fees operations:
 
 In `eclair.conf` add:
 
@@ -36,7 +38,9 @@ In `eclair.conf` add:
 |-----------------------------------------	|-----	|
 | eclair.dynamicfees.depleted.threshold   	| 0.3 	|
 | eclair.dynamicfees.saturated.threshold  	| 0.8 	|
-| eclair.dynamicfees.depleted.multiplier  	| 5   	|
-| eclair.dynamicfees.saturated.multiplier 	| 2   	|
+| eclair.dynamicfees.depleted.multiplier  	| 3   	|
+| eclair.dynamicfees.saturated.multiplier 	| 0.5  	|
+| eclair.dynamicfees.whitelist              | ["0x1x2"] |
+| eclair.dynamicfees.blacklist              | ["3x4x5"] |
 
 

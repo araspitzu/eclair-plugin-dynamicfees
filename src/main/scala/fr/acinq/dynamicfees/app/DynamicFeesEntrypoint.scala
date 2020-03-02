@@ -17,43 +17,56 @@
 package fr.acinq.dynamicfees.app
 
 import akka.actor.Props
+import com.typesafe.config.{Config, ConfigFactory}
 import fr.acinq.dynamicfees.app.FeeAdjusterActor.{DynamicFeeRow, DynamicFeesBreakdown}
-import com.typesafe.config.Config
-import fr.acinq.eclair.{Kit, Plugin, Setup}
+import fr.acinq.eclair.{Kit, Plugin, Setup, ShortChannelId}
 import grizzled.slf4j.Logging
+
+import scala.collection.JavaConverters._
 
 class DynamicFeesEntrypoint extends Plugin with Logging {
 
-  logger.info("loading dynamicfees plugin")
-
+  implicit val log = logger
+  val fallbackConf = ConfigFactory.parseString(
+    """
+      dynamicfees.whitelist = []
+      dynamicfees.blacklist = []
+    """
+  )
   var conf: Config = null
   var dynamicFeesConfiguration: DynamicFeesBreakdown = null
+
+  log.info("loading DynamicFees plugin")
 
   override def onSetup(setup: Setup): Unit = {
     conf = setup.config
     dynamicFeesConfiguration = DynamicFeesBreakdown(
       depleted = DynamicFeeRow(conf.getDouble("dynamicfees.depleted.threshold"), conf.getDouble("dynamicfees.depleted.multiplier")),
-      saturated = DynamicFeeRow(conf.getDouble("dynamicfees.saturated.threshold"), conf.getDouble("dynamicfees.saturated.multiplier"))
+      saturated = DynamicFeeRow(conf.getDouble("dynamicfees.saturated.threshold"), conf.getDouble("dynamicfees.saturated.multiplier")),
+      whitelist = conf.withFallback(fallbackConf).getStringList("dynamicfees.whitelist").asScala.toList.map(ShortChannelId.apply),
+      blacklist = conf.withFallback(fallbackConf).getStringList("dynamicfees.blacklist").asScala.toList.map(ShortChannelId.apply)
     )
-    logger.info(prettyPrint(dynamicFeesConfiguration))
-  }
-
-  override def onKit(kit: Kit): Unit = {
-    kit.system.actorOf(Props(new FeeAdjusterActor(kit, dynamicFeesConfiguration)))
+    log.info(prettyPrint(dynamicFeesConfiguration))
   }
 
   def prettyPrint(dfb: DynamicFeesBreakdown) =
     s"""
        |+----------------------------------------------------------------------+
-       ||                 DYNAMIC FEES PLUGIN CONFIGURATION                    |
-       ||                                                                      |
-       ||                                                                      |
-       ||      depleted channel: threshold = ${dfb.depleted.threshold} multiplier = ${dfb.depleted.multiplier}              |
-       ||                                                                      |
-       ||      saturated channel: threshold = ${dfb.saturated.threshold} multiplier = ${dfb.saturated.multiplier}             |
-       ||                                                                      |
-       ||                                                                      |
+       |                 DYNAMIC FEES PLUGIN CONFIGURATION
+       |
+       |
+       |      depleted channel: threshold = ${dfb.depleted.threshold} multiplier = ${dfb.depleted.multiplier}
+       |
+       |      saturated channel: threshold = ${dfb.saturated.threshold} multiplier = ${dfb.saturated.multiplier}
+       |
+       |      blacklisted: ${dfb.blacklist.size}       whitelisted: ${dfb.whitelist.size}
+       |
+       |
        |+----------------------------------------------------------------------+
      """.stripMargin
+
+  override def onKit(kit: Kit): Unit = {
+    kit.system.actorOf(Props(new FeeAdjusterActor(kit, dynamicFeesConfiguration)))
+  }
 
 }
