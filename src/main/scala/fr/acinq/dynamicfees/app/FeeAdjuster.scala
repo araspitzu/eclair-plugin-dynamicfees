@@ -127,6 +127,8 @@ object FeeAdjuster {
     blacklist: List[ShortChannelId]
   ) {
     require(!(whitelist.nonEmpty && blacklist.nonEmpty), "cannot use both whitelist and blacklist in dynamicfees plugin configuration")
+    require(depleted.threshold > 0 && saturated.threshold > 0 && depleted.threshold < saturated.threshold && depleted.threshold + saturated.threshold < 2, "invalid values for depleted/saturated threshold")
+    require(depleted.multiplier > 0 && saturated.multiplier > 0)
   }
 
 }

@@ -57,7 +57,7 @@ class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with fixture.FunSuite
 
   test("configuration should allow only one between blacklist and whitelist") { _ =>
     // both empty list is okay
-    val dfb = DynamicFeesBreakdown(DynamicFeeRow(0D, 0D), DynamicFeeRow(0D, 0D), List.empty, List.empty)
+    val dfb = DynamicFeesBreakdown(DynamicFeeRow(0.2, 0.2D), DynamicFeeRow(0.9, 2D), List.empty, List.empty)
 
     // one of the two non empty is okay
     dfb.copy(whitelist = List(ShortChannelId("1x2x3")))
