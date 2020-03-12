@@ -55,8 +55,8 @@ class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with fixture.FunSuite
   }
 
 
-  test("configuration should allow only one between blacklist and whitelist") { _ =>
-    // both empty list is okay
+  test("configuration sanity checks") { _ =>
+    // both blacklist and whitelist empty is okay
     val dfb = DynamicFeesBreakdown(DynamicFeeRow(0.2, 0.2D), DynamicFeeRow(0.9, 2D), List.empty, List.empty)
 
     // one of the two non empty is okay
@@ -65,6 +65,22 @@ class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with fixture.FunSuite
 
     // both non empty list NOT okay
     assertThrows[IllegalArgumentException](dfb.copy(whitelist = List(ShortChannelId("0x0x0")), blacklist = List(ShortChannelId("1x2x3"))))
+
+    // depleted threshold must be smaller than saturated threshold
+    assertThrows[IllegalArgumentException](
+      DynamicFeesBreakdown(DynamicFeeRow(0.7, 0.2D), DynamicFeeRow(0.6, 2D), List.empty, List.empty)
+    )
+
+    // the sum of the thresholds must be smaller than 2
+    assertThrows[IllegalArgumentException](
+      DynamicFeesBreakdown(DynamicFeeRow(1.3, 0.2D), DynamicFeeRow(0.9, 2D), List.empty, List.empty)
+    )
+
+    // multiplier must be greater than 0
+    assertThrows[IllegalArgumentException](
+      DynamicFeesBreakdown(DynamicFeeRow(0.7, -1.2), DynamicFeeRow(0.6, 2D), List.empty, List.empty)
+    )
+
   }
 
   test("relay a payment and adjust a the relay fee of a depleted channel") { f =>
@@ -161,7 +177,7 @@ class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with fixture.FunSuite
 
     val sender = TestProbe()
     // we'll consider saturated anything that has toLocal > 70% of the channel capacity
-    val dfb = DynamicFeesBreakdown(DynamicFeeRow(0.4, 0.1), DynamicFeeRow(0.7, 2), List.empty, List(ShortChannelId("0x1x0")))
+    val dfb = DynamicFeesBreakdown(DynamicFeeRow(0.4, 0.1), DynamicFeeRow(0.7, 2), whitelist = List.empty, blacklist = List(ShortChannelId("0x1x0")))
     val feeAdjuster = system.actorOf(Props(new FeeAdjuster(kit, dfb)))
 
     // let's relay a payment
@@ -188,7 +204,7 @@ class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with fixture.FunSuite
 
     val sender = TestProbe()
     // we'll consider saturated anything that has toLocal > 70% of the channel capacity
-    val dfb = DynamicFeesBreakdown(DynamicFeeRow(0.4, 0.1), DynamicFeeRow(0.7, 2), List(ShortChannelId("0x3x0")), List.empty)
+    val dfb = DynamicFeesBreakdown(DynamicFeeRow(0.4, 0.1), DynamicFeeRow(0.7, 2), whitelist = List(ShortChannelId("0x3x0")), blacklist = List.empty)
     val feeAdjuster = system.actorOf(Props(new FeeAdjuster(kit, dfb)))
 
     // let's relay a payment
