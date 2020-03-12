@@ -24,7 +24,7 @@ Once the plugin is configured and loaded it doesn't need any further input from 
 ### Configuration
 Users MUST define a configuration section specifying the chosen values for their depleted/saturated thresholds
 and their relative multiplier, note that the plugin only asks for a depleted and saturated thresholds and everything 
-in between will be considered balanced. It is possible to specify either a blacklist OR a whitelist of channel
+in between will be considered balanced. It is possible to specify **either a blacklist OR a whitelist** of channel
 `short_id`s, this allows to filter only for certain channels or filter out channels that you want to exclude from 
 the dynamic fees operations:
 
