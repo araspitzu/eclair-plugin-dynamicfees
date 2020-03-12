@@ -1,22 +1,18 @@
 ## Dynamicfees eclair plugin
 
 This is a plugin for [eclair](github.com/ACINQ/eclair) to adjust your channel relay fees dynamically according to 
-the channel balance. The plugin conceptually defines 3 states in which the channel [balance] can be and a 'multiplier'
+the channel balance. The plugin conceptually defines 3 states in which the channel [balance] can be and a *multiplier*
 associated to each state, the multiplier will be used to compute the new relay fees.
 
-- Depleted  => When 'toLocal' becomes too little the channel is considered depleted
-- Balanced  => When the channel is not depleted nor saturated then it's balanced, no multiplier applied
-- Saturated => When 'toLocal' becomes too large the channel is considered saturated
+- Depleted: when 'toLocal' becomes too little the channel is considered depleted
+- Saturated: when 'toLocal' becomes too large the channel is considered saturated
+- Balanced: when the channel is not depleted nor saturated then it's balanced, no multiplier applied
 
 The goal of the plugin is to keep the user's channel balanced by incentivizing the usage of depleted channels and 
 disincentivizing the usage of saturated channels, with this strategy the channels naturally tend to stay in a balanced
 state. Note that if all nodes on the network apply this strategy all the users would benefit from a more balanced network.
-The plugin works by intercepting the relayed payments and creates a new `channel_update` if and only if the channel is 
-transitioning from a state to another (i.e going balanced -> depleted), the plugin will *ignore* sent/received payments because
-they are user initiated. The plugin will apply the multiplier only to the `fee_proportional` value of the relay fee and 
-use the *configured value* in `eclair.fee-proportional-millionths` as basepoint for the multiplication. This means that a 
-manually updated relay fee will be overridden by the plugin once there is a relayed payments that make the channel transition 
-to a new state.
+The plugin works by intercepting the relayed payments and creates a new `channel_update` **if and only if** the channel is 
+transitioning from a state to another (i.e going *balanced* -> *depleted*), the plugin will *ignore* sent/received payments because they are user initiated. The plugin will apply the multiplier only to the `fee_proportional` value of the relay fee and use the **configured value** in `eclair.fee-proportional-millionths` as basepoint for the multiplication. This means that a manually updated relay fee will be overridden by the plugin once there is a relayed payments that make the channel transition to a new state.
 
 ### Installation
 The plugin can be built locally or downloaded from the release page of this repo, it's a fat jar that must be 
@@ -34,13 +30,27 @@ the dynamic fees operations:
 
 In `eclair.conf` add:
 
-|                                         	|     	|
-|-----------------------------------------	|-----	|
-| eclair.dynamicfees.depleted.threshold   	| 0.3 	|
-| eclair.dynamicfees.saturated.threshold  	| 0.8 	|
-| eclair.dynamicfees.depleted.multiplier  	| 3   	|
-| eclair.dynamicfees.saturated.multiplier 	| 0.5  	|
-| eclair.dynamicfees.whitelist              | ["0x1x2"] |
-| eclair.dynamicfees.blacklist              | ["3x4x5"] |
+|                                         	|           	|                                                                                	|
+|-----------------------------------------	|-----------	|--------------------------------------------------------------------------------	|
+| eclair.dynamicfees.depleted.threshold   	| 0.3       	| 0.3 = 30% this value must be below 1 and below the saturated threshold         	|
+| eclair.dynamicfees.saturated.threshold  	| 0.8       	| 0.8 = 80% this value must be below 1 and above the depleted threshold          	|
+| eclair.dynamicfees.depleted.multiplier  	| 0.6       	| when in depleted state the fees will be `fee-proportional-millionths * 0.6`    	|
+| eclair.dynamicfees.saturated.multiplier 	| 3         	| when in saturated state the fees will be `fee-proportional-millionths * 3`     	|
+| eclair.dynamicfees.whitelist            	| ["0x1x2"] 	| if non empty only the channels in this list will be affected by the plugin     	|
+| eclair.dynamicfees.blacklist            	| ["0x1x2"] 	| if non empty only the channels NOT in this list will be affected by the plugin 	|
+
+The above configuration values are an example (note there are no default values) and would cause the plugin to behave as follow: 
+
+1) for each relayed payment retrieve the data for the channels involved (in/out)
+2) for each channel involved, if the channel is not blacklisted OR if the whitelist is non-empty and the channel is whitelisted
+3) compute the balance status
+4) 
+   - if the balance is below the depleted threshold compute the new fee according to depleted multiplier 
+   - if the balance is above the saturated threshold compute the new fee according to saturated multiplier
+   - if the balance is above depleted and below saturated threshold use multiplier 1x
+5) create a candidate channel_update
+6)
+   - if the previous channel_update contains the same fees as the candidate **do not** broadcast it
+   - if the previous channel_update contains different fees from the candidate **then broadcast it**
 
 
