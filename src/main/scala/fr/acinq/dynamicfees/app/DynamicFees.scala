@@ -24,7 +24,7 @@ import grizzled.slf4j.Logging
 
 import scala.collection.JavaConverters._
 
-class DynamicFeesEntrypoint extends Plugin with Logging {
+class DynamicFees extends Plugin with Logging {
 
   val fallbackConf = ConfigFactory.parseString(
     """
