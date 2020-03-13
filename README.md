@@ -19,7 +19,19 @@ The plugin can be built locally or downloaded from the release page of this repo
 passed as argument to eclair when it's launched, see the [instructions](https://github.com/ACINQ/eclair#plugins).
 
 ### Usage
-Once the plugin is configured and loaded it doesn't need any further input from the user.
+Once the plugin is configured and loaded it doesn't need any further input from the user, below there is a breakdown of how the plugin works:
+1) for each relayed payment retrieve the data for the channels involved (in/out)
+2) for each channel involved, if the channel is not blacklisted OR if the whitelist is non-empty and the channel is whitelisted
+3) compute the channel balance status
+4) 
+   - if the balance is below the depleted threshold compute the new fee according to depleted multiplier 
+   - if the balance is above the saturated threshold compute the new fee according to saturated multiplier
+   - if the balance is above depleted and below saturated threshold use multiplier 1x
+5) create a candidate channel_update using the new fee
+6)
+   - if the previous channel_update contains the same fees as the candidate **do not** broadcast it
+   - if the previous channel_update contains different fees from the candidate **do** broadcast it
+
 
 ### Configuration
 Users MUST define a configuration section specifying the chosen values for their depleted/saturated thresholds
@@ -38,19 +50,4 @@ In `eclair.conf` add:
 | eclair.dynamicfees.saturated.multiplier 	| 3         	| when in saturated state the fees will be `fee-proportional-millionths * 3`     	|
 | eclair.dynamicfees.whitelist            	| ["0x1x2"] 	| if non empty only the channels in this list will be affected by the plugin     	|
 | eclair.dynamicfees.blacklist            	| ["0x1x2"] 	| if non empty only the channels NOT in this list will be affected by the plugin 	|
-
-The above configuration values are an example (note there are no default values) and would cause the plugin to behave as follow: 
-
-1) for each relayed payment retrieve the data for the channels involved (in/out)
-2) for each channel involved, if the channel is not blacklisted OR if the whitelist is non-empty and the channel is whitelisted
-3) compute the balance status
-4) 
-   - if the balance is below the depleted threshold compute the new fee according to depleted multiplier 
-   - if the balance is above the saturated threshold compute the new fee according to saturated multiplier
-   - if the balance is above depleted and below saturated threshold use multiplier 1x
-5) create a candidate channel_update
-6)
-   - if the previous channel_update contains the same fees as the candidate **do not** broadcast it
-   - if the previous channel_update contains different fees from the candidate **then broadcast it**
-
 
