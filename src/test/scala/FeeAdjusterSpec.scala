@@ -26,11 +26,12 @@ import fr.acinq.eclair.{Kit, ShortChannelId}
 import fr.acinq.eclair.LongToBtcAmount
 import fr.acinq.eclair.channel.{CMD_GETINFO, CMD_UPDATE_RELAY_FEE, NORMAL, RES_GETINFO}
 import fr.acinq.eclair.channel.Register.Forward
+import org.scalatest.funsuite.FixtureAnyFunSuiteLike
 import org.scalatest.{Outcome, fixture}
 
 import scala.concurrent.duration._
 
-class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with fixture.FunSuiteLike {
+class FeeAdjusterSpec extends TestKit(ActorSystem("test")) with FixtureAnyFunSuiteLike {
 
   case class FixtureParam(kit: Kit, register: TestProbe, channel1: ByteVector32, channel2: ByteVector32)
 

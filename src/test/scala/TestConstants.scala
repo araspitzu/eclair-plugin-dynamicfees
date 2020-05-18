@@ -28,7 +28,8 @@ import fr.acinq.eclair.channel.{Channel, ChannelVersion, Commitments, DATA_NORMA
 import fr.acinq.eclair.crypto.{LocalKeyManager, ShaChain}
 import fr.acinq.eclair.db._
 import fr.acinq.eclair.io.Peer
-import fr.acinq.eclair.router.{Announcements, RouterConf}
+import fr.acinq.eclair.router.Router.RouterConf
+import fr.acinq.eclair.router.Announcements
 import fr.acinq.eclair.transactions.Transactions.CommitTx
 import fr.acinq.eclair.transactions.{CommitmentSpec, DirectedHtlc}
 import fr.acinq.eclair.wire.{Color, EncodingType, NodeAddress}
@@ -72,7 +73,6 @@ object TestConstants {
   def inMemoryDb(connection: Connection = sqliteInMemory()): Databases = Databases.databaseByConnections(connection, connection, connection)
 
   object Alice {
-    // This is a function, and not a val! When called will return a new NodeParams
     def nodeParams = NodeParams(
       keyManager = keyManager,
       blockCount = new AtomicLong(defaultBlockHeight),
@@ -104,6 +104,8 @@ object TestConstants {
       maxReserveToFundingRatio = 0.05,
       db = inMemoryDb(sqliteInMemory()),
       revocationTimeout = 20 seconds,
+      authTimeout = 10 seconds,
+      initTimeout = 10 seconds,
       pingInterval = 30 seconds,
       pingTimeout = 10 seconds,
       pingDisconnect = true,
@@ -116,7 +118,7 @@ object TestConstants {
       paymentRequestExpiry = 1 hour,
       multiPartPaymentExpiry = 30 seconds,
       minFundingSatoshis = 1000 sat,
-      maxFundingSatoshis = 10000 sat,
+      maxFundingSatoshis = 16777215 sat,
       routerConf = RouterConf(
         randomizeRouteSelection = false,
         channelExcludeDuration = 60 seconds,

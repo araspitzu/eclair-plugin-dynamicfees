@@ -19,9 +19,9 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>fr.acinq.dynamicfees</groupId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
 
-    <artifactId>eclair-dynamicfees_2.11</artifactId>
+    <artifactId>eclair-dynamicfees_2.13</artifactId>
     <packaging>jar</packaging>
     <name>eclair-dynamicfees</name>
 
@@ -30,8 +30,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
-        <scala.version>2.11.12</scala.version>
-        <scala.version.short>2.11</scala.version.short>
+        <scala.version>2.13.1</scala.version>
+        <scala.version.short>2.13</scala.version.short>
+        <eclair.version>0.4.1-SNAPSHOT</eclair.version>
     </properties>
 
     <build>
@@ -40,20 +41,21 @@
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
-                <version>3.3.1</version>
+                <version>3.4.2</version>
                 <configuration>
                     <args combine.children="append">
-                        <arg>-deprecation</arg>
+                        <!--arg>-Xlint:deprecation</arg-->
                         <arg>-feature</arg>
                         <arg>-language:postfixOps</arg>
                         <arg>-language:implicitConversions</arg>
-                        <arg>-Xfatal-warnings</arg>
+                        <!--arg>-Werror</arg-->
                         <arg>-unchecked</arg>
-                        <arg>-Xmax-classfile-name</arg>
-                        <arg>140</arg>
-                        <!-- needed to compile Scala code on JDK9+ -->
-                        <arg>-nobootcp</arg>
                     </args>
+                    <jvmArgs>
+                        <jvmArg>-Xmx1024m</jvmArg>
+                        <jvmArg>-Xms1024m</jvmArg>
+                        <jvmArg>-Xss32m</jvmArg>
+                    </jvmArgs>
                     <scalaCompatVersion>${scala.version.short}</scalaCompatVersion>
                 </configuration>
                 <executions>
@@ -70,6 +72,7 @@
                             <goal>doc-jar</goal>
                         </goals>
                         <configuration>
+                            <skip>${maven.test.skip}</skip>
                             <args>
                                 <arg>-no-link-warnings</arg>
                             </args>
@@ -102,7 +105,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.0.1</version>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -143,6 +146,26 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <version>2.0.0</version>
+                <configuration>
+                    <parallel>true</parallel>
+                    <systemProperties>
+                        <buildDirectory>${project.build.directory}</buildDirectory>
+                    </systemProperties>
+                    <argLine>-Xmx1024m -Dfile.encoding=UTF-8</argLine>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -156,25 +179,25 @@
         <dependency>
             <groupId>fr.acinq.eclair</groupId>
             <artifactId>eclair-core_${scala.version.short}</artifactId>
-            <version>0.3.4-SNAPSHOT</version>
+            <version>${eclair.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>fr.acinq.eclair</groupId>
             <artifactId>eclair-node_${scala.version.short}</artifactId>
-            <version>0.3.4-SNAPSHOT</version>
+            <version>${eclair.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_${scala.version.short}</artifactId>
-            <version>3.0.5</version>
+            <version>3.3.0-SNAP2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-testkit_${scala.version.short}</artifactId>
-            <version>2.4.20</version>
+            <version>2.6.4</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
